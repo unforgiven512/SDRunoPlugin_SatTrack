@@ -5,14 +5,13 @@
 #include <sstream>
 #include <chrono>
 #include <nana/system/platform.hpp>
+
 #include "SDRunoPlugin_SatTrack.h"
 #include "SDRunoPlugin_SatTrackUI.h"
 
-SDRunoPlugin_SatTrack::SDRunoPlugin_SatTrack(IUnoPluginController& controller) :
-	IUnoPlugin(controller),
-	m_form(*this, controller),
-	m_worker(nullptr) {
 
+
+SDRunoPlugin_SatTrack::SDRunoPlugin_SatTrack(IUnoPluginController &controller): IUnoPlugin(controller), m_form(*this, controller), m_worker(nullptr) {
 	SetMode();
 }
 
@@ -28,7 +27,6 @@ void SDRunoPlugin_SatTrack::WorkerFunction() {
 }
 
 void SDRunoPlugin_SatTrack::SetMode() {
-
 	std::lock_guard<std::mutex> l(m_lock);
 
 	if (m_controller.GetDemodulatorType(0) != IUnoPluginController::DemodulatorMFM) {

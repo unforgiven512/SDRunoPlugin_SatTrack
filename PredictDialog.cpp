@@ -1,11 +1,11 @@
 #include "PredictDialog.h"
 #include "SDRunoPlugin_SatTrackForm.h"
 
-PredictDialog::PredictDialog(SDRunoPlugin_SatTrackForm& parent) :
-	nana::form(nana::API::make_center(630, 440), nana::appearance(true, false, true, false, false, false, false)),
-	m_parent(parent),
-	file_(parent.GetTLEFile()),
-	selections_(parent.GetSelections()) {
+PredictDialog::PredictDialog(SDRunoPlugin_SatTrackForm &parent):
+		nana::form(nana::API::make_center(630, 440), nana::appearance(true, false, true, false, false, false, false)),
+		m_parent(parent),
+		file_(parent.GetTLEFile()),
+		selections_(parent.GetSelections()) {
 	Setup();
 }
 
@@ -19,10 +19,10 @@ void PredictDialog::Setup() {
 	selections_ = m_parent.GetSelections();
 
 	move(m_parent.GetPredictX(), m_parent.GetPredictY());
-	events().move([&](const nana::arg_move& mov) {
+	events().move([&](const nana::arg_move &mov) {
 		m_parent.SetPredictX(mov.x);
 		m_parent.SetPredictY(mov.y);
-				  });
+	});
 
 	caption("SDRuno SatTrack Plugin - Predictions");
 
@@ -39,7 +39,7 @@ void PredictDialog::Setup() {
 	lb_predicts.sortable(false);
 	lb_predicts.append_header("Time", 120);
 	lb_predicts.append_header("Satellite", 145);
-	lb_predicts.append_header("Azimut", 60);
+	lb_predicts.append_header("Azimuth", 60);
 	lb_predicts.append_header("Elevation", 60);
 	lb_predicts.column_at(0).text_align(nana::align::left);
 	lb_predicts.column_at(1).text_align(nana::align::left);
@@ -63,17 +63,18 @@ void PredictDialog::Setup() {
 	tb_filter.events().text_changed([&]() {
 		filter_ = tb_filter.to_double();
 		selections_["sat_elevation"] = filter_;
-									});
+	});
 
-	for (auto& l : sat_list_) {
+	for (auto &l: sat_list_) {
 		auto item = lb_select.at(0).append(l.first);
 		if (!selections_.contains_key(l.first)) {
 			selections_.add_pair(l.first, json_utils::json_value{ false });
-		}
-		else
+		} else {
 			item->check(selections_[l.first].bool_val());
+		}
 	}
-	lb_select.events().checked([&](const nana::arg_listbox& ar_lbx) {
+
+	lb_select.events().checked([&](const nana::arg_listbox &ar_lbx) {
 		if (selections_.contains_key(ar_lbx.item.text(0))) {
 			selections_[ar_lbx.item.text(0)] = ar_lbx.item.checked();
 		}
@@ -87,39 +88,38 @@ void PredictDialog::Setup() {
 	btn_predict.events().click(nana::threads::pool_push(thrpool_, *this, &PredictDialog::Predict));
 
 	events().unload([&] {
-
-		if (!canceled_.load())
-		{
+		if (!canceled_.load()) {
 			canceled_ = true;
 
 			std::this_thread::sleep_for(std::chrono::seconds(1));
 		}
-					});
+	});
 }
 
-void PredictDialog::Predictions(const std::string& sat_name) {
-
-	if (!sat_list_.contains(sat_name))
+void PredictDialog::Predictions(const std::string &sat_name) {
+	if (!sat_list_.contains(sat_name)) {
 		return;
+	}
 
 	line_pair tle_data = sat_list_[sat_name];
 
-	elsetrec satrec; /* Pointer to two-line elements set for satellite */
+	elsetrec satrec;	/* Pointer to two-line elements set for satellite */
 	parse_tle_lines(tle_data, 'a', wgs72, satrec);
-	if (satrec.error)
+	if (satrec.error) {
 		return;
+	}
 
-	bool geostationary = (int)((2.0 * M_PI) / satrec.no_kozai) == 1436;	// 1 sideral day : 23h 56mn 4.0905 s = 1436.068175 mn
-	if (geostationary)
-		return; // geostationary satellites are ignored
+	// 1 sidereal day = 23h 56m 4.0905s = 1436.068175m
+	bool geostationary = (int)((2.0 * M_PI) / satrec.no_kozai) == 1436;	
+	if (geostationary) {
+		return;			// geostationary satellites are ignored
+	}
 
 	double start = julian_now();
-	double end = start + 1.0;	// 1 day predictions
-
+	double end = start + 1.0;									// 1 day predictions
 	double tle_date = satrec.jdsatepoch + satrec.jdsatepochF;
 	double rev_per_day = satrec.no_kozai * 1440 / (2.0 * M_PI);	// (rev/day)
-	double step = 1.0 / rev_per_day / 20.0; // coarse step 20 points per period
-
+	double step = 1.0 / rev_per_day / 20.0;						// coarse step 20 points per period
 	bool first = true;
 	double previous_elev = 0.0;
 
@@ -127,11 +127,13 @@ void PredictDialog::Predictions(const std::string& sat_name) {
 	result.name = sat_name;
 
 	double jd = (tle_date > start) ? tle_date : start;
-	while (jd < end) {
 
+	while (jd < end) {
 		auto [azimut, elevation] = calc_azm_elev(jd, observer_, satrec);
-		if (satrec.error != 0)
+
+		if (satrec.error != 0) {
 			break;
+		}
 
 		if (first) {
 			previous_elev = elevation;
@@ -147,14 +149,11 @@ void PredictDialog::Predictions(const std::string& sat_name) {
 				if (result.jd_pass_start > 0) {
 					std::tie(result.azm_start, result.elev_start) = calc_azm_elev(result.jd_pass_start, observer_, satrec);
 				}
-			}
-			else {
+			} else {
 				if (result.jd_pass_start > 0) {
-
 					result.jd_pass_end = regula_falsi(jd - step, jd, observer_, satrec);
 					if (result.jd_pass_end > 0) {
 						std::tie(result.azm_end, result.elev_end) = calc_azm_elev(result.jd_pass_end, observer_, satrec);
-
 						result.jd_pass_max = (result.jd_pass_start + result.jd_pass_end) / 2.0;
 						std::tie(result.azm_max, result.elev_max) = calc_azm_elev(result.jd_pass_max, observer_, satrec);
 						if (satrec.error == 0) {
@@ -169,10 +168,8 @@ void PredictDialog::Predictions(const std::string& sat_name) {
 		}
 
 		previous_elev = elevation;
-
 		jd += step;
 	}
-
 }
 
 void PredictDialog::Predict() {
@@ -180,8 +177,9 @@ void PredictDialog::Predict() {
 	lb_predicts.clear();
 
 	auto sats = lb_select.checked();
-	if (sats.empty())
+	if (sats.empty()) {
 		return;
+	}
 
 	canceled_ = false;
 
@@ -192,7 +190,7 @@ void PredictDialog::Predict() {
 	prog_.amount((int)sats.size());
 	prog_.value(0);
 
-	for (const auto& sat : sats) {
+	for (const auto &sat: sats) {
 		if (canceled_.load()) {
 			prog_.hide();
 			btn_predict.enabled(true);
@@ -210,11 +208,11 @@ void PredictDialog::Predict() {
 	prog_.amount((int)results_.size());
 	prog_.value(0);
 
-	for (auto& r : results_) {
+	for (auto &r: results_) {
 		if (canceled_.load()) {
-	prog_.hide();
-	btn_predict.enabled(true);
-	tb_filter.enabled(true);
+			prog_.hide();
+			btn_predict.enabled(true);
+			tb_filter.enabled(true);
 
 			return;
 		}
@@ -233,8 +231,5 @@ void PredictDialog::Predict() {
 	prog_.hide();
 	btn_predict.enabled(true);
 	tb_filter.enabled(true);
-
 	canceled_ = true;
 }
-
-

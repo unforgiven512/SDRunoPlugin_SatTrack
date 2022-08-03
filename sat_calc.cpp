@@ -1,38 +1,45 @@
 #include "sat_calc.h"
+
 #include <time.h>
 #include <fstream>
 #include <locale>
 #include <format>
 
+
 // Convert to greenwich mean sidereal time
 double to_gmst(double jd) {
 	/* Reference:  The 1992 Astronomical Almanac, page B6. */
-
 	double intpart;
 	double UT = std::modf(jd + 0.5, &intpart);
 
 	jd = jd - UT;
+
 	double TU = (jd - 2451545.0) / 36525;
 	double GMST = 24110.54841 + TU * (8640184.812866 + TU * (0.093104 - TU * 6.2E-6));
+
 	GMST = std::fmod(GMST + 86400.0 * 1.00273790934 * UT, 86400.0);
 
 	return (2 * M_PI * GMST / 86400.0);
 }
 
-double reduce(double value, double rangeMin, double rangeMax) {
 
+double reduce(double value, double rangeMin, double rangeMax) {
 	double range = rangeMax - rangeMin;
 	double fullRanges;
+
 	std::modf((rangeMax - value) / range, &fullRanges);
 
 	double retval = value + fullRanges * range;
-	if (retval > rangeMax)
-		retval -= range;
 
-	return retval;
+	if (retval > rangeMax) {
+		retval -= range;
+	}
+
+	return (retval);
 }
 
-void eci_pos_t::update(double jd, const geodetic_t& g) {
+
+void eci_pos_t::update(double jd, const geodetic_t &g) {
 	double theta = to_lmst(jd, g.lon);
 
 	double c = 1.0 / std::sqrt(1.0 + EARTH_FLAT * (EARTH_FLAT - 2.0) * sqr(std::sin(g.lat)));
@@ -43,7 +50,8 @@ void eci_pos_t::update(double jd, const geodetic_t& g) {
 	vel.set(-MFACTOR * pos.y, MFACTOR * pos.x, 0.0);
 }
 
-void geodetic_t::update(double jd, const eci_pos_t& pv) {
+
+void geodetic_t::update(double jd, const eci_pos_t &pv) {
 	double theta = std::atan2(pv.pos.y, pv.pos.x);
 
 	lon = reduce(theta - to_gmst(jd), -M_PI, M_PI);
@@ -67,7 +75,8 @@ void geodetic_t::update(double jd, const eci_pos_t& pv) {
 		lat -= 2 * M_PI;
 }
 
-topocentric_t observer_t::get_lookup_angle(double jd, const eci_pos_t& obj) {
+
+topocentric_t observer_t::get_lookup_angle(double jd, const eci_pos_t &obj) {
 	eci.update(jd, geo);
 
 	vector_t range = obj.pos - eci.pos;
@@ -97,7 +106,8 @@ topocentric_t observer_t::get_lookup_angle(double jd, const eci_pos_t& obj) {
 	return topocentric_t(azim, el, range.mag(), range.dot(rgvel) / range.mag());
 }
 
-static bool tle_checksum(const std::string& buff) {
+
+static bool tle_checksum(const std::string &buff) {
 	int cksum = 0;
 
 	if (buff.size() < 69)
@@ -119,6 +129,7 @@ static bool tle_checksum(const std::string& buff) {
 
 	return ((cksum % 10) == (buff[68] - '0'));
 }
+
 
 //  XXXXXXXXXXX                                                              
 //  1 AAAAAU 00  0  0 BBBBB.BBBBBBBB +.CCCCCCCC +DDDDD-D +EEEEE-E F  GGGZ    
@@ -185,24 +196,28 @@ static bool tle_checksum(const std::string& buff) {
 //                                                                           
 //  All other columns are blank or fixed.                                    
 
-inline void get_element_str(char* dst, const std::string src, int start, int end) {
+inline void get_element_str(char *dst, const std::string src, int start, int end) {
 	auto clen = src.copy(dst, end - start + 1, start - 1);
 	dst[clen] = '\0';
 }
+
 
 inline int get_element_int(const std::string src, int start, int end) {
 	return std::stoi(src.substr(start - 1, end - start + 1));
 }
 
+
 inline double get_element_double(const std::string src, int start, int end) {
 	return std::stod(src.substr(start - 1, end - start + 1));
 }
 
+
 inline double get_element_double_exp(const std::string src, int start) {
-	std::string n = src.substr(start - 1,1) + "0." + src.substr(start - 1 + 1, 5) + "e" + src.substr(start - 1 + 6, 2);
+	std::string n = src.substr(start - 1, 1) + "0." + src.substr(start - 1 + 1, 5) + "e" + src.substr(start - 1 + 6, 2);
 
 	return std::stod(n);
 }
+
 
 inline double get_element_impldec(const std::string src, int start, int end) {
 	std::string n = "0." + src.substr(start - 1, end - start + 1);
@@ -210,7 +225,8 @@ inline double get_element_impldec(const std::string src, int start, int end) {
 	return std::stod(n);
 }
 
-void parse_tle_lines(const line_pair& tle_data, char opsmode, gravconsttype whichconst, elsetrec& satrec) {
+
+void parse_tle_lines(const line_pair &tle_data, char opsmode, gravconsttype whichconst, elsetrec &satrec) {
 
 	satrec.error = 0;
 
@@ -224,9 +240,9 @@ void parse_tle_lines(const line_pair& tle_data, char opsmode, gravconsttype whic
 	satrec.epochyr = get_element_int(longstr1, 19, 20);
 	satrec.epochdays = get_element_double(longstr1, 21, 32);
 	satrec.ndot = get_element_double(longstr1, 34, 43);
-	satrec.nddot = get_element_double_exp(longstr1, 45); 
-	satrec.bstar = get_element_double_exp(longstr1, 54); 
-	satrec.ephtype = longstr1[63-1] - '0';
+	satrec.nddot = get_element_double_exp(longstr1, 45);
+	satrec.bstar = get_element_double_exp(longstr1, 54);
+	satrec.ephtype = longstr1[63 - 1] - '0';
 	satrec.elnum = get_element_int(longstr1, 65, 68);
 	char chec_sum = longstr1[69 - 1];
 
@@ -238,7 +254,7 @@ void parse_tle_lines(const line_pair& tle_data, char opsmode, gravconsttype whic
 	satrec.ecco = get_element_impldec(longstr2, 27, 33);
 	satrec.argpo = get_element_double(longstr2, 35, 42);
 	satrec.mo = get_element_double(longstr2, 44, 51);
-	satrec.no_kozai = get_element_double(longstr2, 53, 63);	
+	satrec.no_kozai = get_element_double(longstr2, 53, 63);
 	satrec.revnum = (long)get_element_int(longstr2, 64, 68);
 	chec_sum = longstr2[69 - 1];
 
@@ -248,7 +264,7 @@ void parse_tle_lines(const line_pair& tle_data, char opsmode, gravconsttype whic
 	// satnum : Satellite catalog number
 	// ecco   : Eccentricity
 	// revnum : Revolution number at epoch
-	
+
 	// ---- find no, ndot, nddot ----
 	satrec.no_kozai = satrec.no_kozai / xpdotp;				// Epoch mean motion (rad/min)
 
@@ -275,10 +291,9 @@ void parse_tle_lines(const line_pair& tle_data, char opsmode, gravconsttype whic
 	SGP4Funcs::jday_SGP4(year, mon, day, hr, minute, sec, satrec.jdsatepoch, satrec.jdsatepochF);
 
 	// ---------------- initialize the orbit at sgp4epoch -------------------
-	SGP4Funcs::sgp4init(whichconst, opsmode, satrec.satnum, (satrec.jdsatepoch + satrec.jdsatepochF) - 2433281.5, satrec.bstar,
-						satrec.ndot, satrec.nddot, satrec.ecco, satrec.argpo, satrec.inclo, satrec.mo, satrec.no_kozai,
-						satrec.nodeo, satrec);
+	SGP4Funcs::sgp4init(whichconst, opsmode, satrec.satnum, (satrec.jdsatepoch + satrec.jdsatepochF) - 2433281.5, satrec.bstar, satrec.ndot, satrec.nddot, satrec.ecco, satrec.argpo, satrec.inclo, satrec.mo, satrec.no_kozai, satrec.nodeo, satrec);
 }
+
 
 // Satellites with a status [-] or [D] are ignored.
 // Operational Status	Descriptions
@@ -295,9 +310,9 @@ void parse_tle_lines(const line_pair& tle_data, char opsmode, gravconsttype whic
 // ?					Unknown
 // *Active is any satellite with an operational status of +, P, B, S, or X.
 // 
-std::map<std::string, line_pair> load_tle_file(const std::string& filename) {
+std::map<std::string, line_pair> load_tle_file(const std::string &filename) {
 	std::ifstream in(filename.c_str());
-	std::map<std::string, line_pair>  list;
+	std::map<std::string, line_pair> list;
 
 	if (!in) {
 		std::cerr << "Cannot open the File : " << filename << std::endl;
@@ -305,7 +320,7 @@ std::map<std::string, line_pair> load_tle_file(const std::string& filename) {
 	}
 
 	std::string str;
-	line_pair lp{};
+	line_pair lp { };
 	while (true) {
 		if (!std::getline(in, str))
 			break;
@@ -337,7 +352,7 @@ std::map<std::string, line_pair> load_tle_file(const std::string& filename) {
 
 		lp.l2 = str;
 
-		if (!tle_checksum(lp.l1.data()) || !tle_checksum(lp.l2.data())) 
+		if (!tle_checksum(lp.l1.data()) || !tle_checksum(lp.l2.data()))
 			continue;
 
 		list[name] = lp;
@@ -348,81 +363,91 @@ std::map<std::string, line_pair> load_tle_file(const std::string& filename) {
 	return list;
 }
 
-eci_pos_t get_sat_pos(double t_since, elsetrec& satrec) {
+
+eci_pos_t get_sat_pos(double t_since, elsetrec &satrec) {
 	if (satrec.init != 'n') {
 		satrec.error = 7;	// custom : not initialzed
 
-		return eci_pos_t{};
+		return eci_pos_t { };
 	}
 
 	double sat_vel[3], sat_pos[3];
 	bool res = SGP4Funcs::sgp4(satrec, t_since, sat_pos, sat_vel);
 	if (!res)
-		return eci_pos_t{};
+		return eci_pos_t { };
 
-	return eci_pos_t{ sat_pos, sat_vel };
+	return eci_pos_t {
+		sat_pos,
+		sat_vel
+	};
 }
 
-int get_orbit_num(double jd, const elsetrec& satrec) {
 
-	double dT = (jd - (satrec.jdsatepoch + satrec.jdsatepochF));	// (days)
-	double dT2 = dT * dT;	// (day^2)
-
-	double epochMeanMotion = satrec.no_kozai * 1440 / (2.0 * M_PI);			// (rev/day)
-	double decayRate = satrec.ndot * 1440 * 1440 / (2.0 * M_PI);			// (rev/day^2)
-	double decayRateDot = satrec.nddot * 1440 * 1440 * 1440 / (2.0 * M_PI);	// (rev/day^3)
+int get_orbit_num(double jd, const elsetrec &satrec) {
+	double dT = (jd - (satrec.jdsatepoch + satrec.jdsatepochF));							// (days)
+	double dT2 = dT * dT;																	// (day^2)
+	double epochMeanMotion = satrec.no_kozai * 1440 / (2.0 * M_PI);							// (rev/day)
+	double decayRate = satrec.ndot * 1440 * 1440 / (2.0 * M_PI);							// (rev/day^2)
+	double decayRateDot = satrec.nddot * 1440 * 1440 * 1440 / (2.0 * M_PI);					// (rev/day^3)
 	double curMotion = epochMeanMotion + 2.0 * decayRate * dT + 6.0 * decayRateDot * dT2;	// current number of rev/day
-	double refOrbit = (double)satrec.revnum + satrec.mo / (2.0*M_PI);		 // (rev)
+	double refOrbit = (double)satrec.revnum + satrec.mo / (2.0 * M_PI);						// (rev)
 
 	return (int)(refOrbit + curMotion * dT);
 }
 
+
 double tz_seconds() {
 	time_t now = time(NULL);
 	struct tm utctm;
+
 	gmtime_s(&utctm, &now);
 	utctm.tm_isdst = -1;
+
 	time_t utctt = mktime(&utctm);
-	return difftime(now, utctt);
+
+	return (difftime(now, utctt));
 }
 
+
 std::string julian_to_string(double jd, bool utc) {
-	int year, mon, day;
-	int hr, minute;
+	int year;
+	int mon;
+	int day;
+	int hr;
+	int minute;
 	double sec;
 
-	if (!utc)
+	if (!utc) {
 		jd += tz_seconds() / (60 * 60 * 24);
+	}
 
 	SGP4Funcs::invjday_SGP4(jd, 0.0, year, mon, day, hr, minute, sec);
-
 	std::string str;
-
-	std::time_get<char>::dateorder order = std::use_facet<std::time_get<char> >(std::locale("")).date_order();
+	std::time_get<char>::dateorder order = std::use_facet<std::time_get<char>>(std::locale("")).date_order();
 	switch (order) {
-	case std::time_get<char>::dmy:
-		// dd/mm/yyyy
-		str = std::format("{:02d}/{:02d}/{:04d} {:02d}:{:02d}:{:02d}", day, mon, year, hr, minute, (int)sec);
-		break;
+		case std::time_get<char>::dmy:
+			// dd/mm/yyyy
+			str = std::format("{:02d}/{:02d}/{:04d} {:02d}:{:02d}:{:02d}", day, mon, year, hr, minute, (int)sec);
+			break;
 
-	case std::time_get<char>::mdy:
-		// mm/dd/yyyy
-		str = std::format("{:02d}/{:02d}/{:04d} {:02d}:{:02d}:{:02d}", mon, day, year, hr, minute, (int)sec);
-		break;
+		case std::time_get<char>::mdy:
+			// mm/dd/yyyy
+			str = std::format("{:02d}/{:02d}/{:04d} {:02d}:{:02d}:{:02d}", mon, day, year, hr, minute, (int)sec);
+			break;
 
-	case std::time_get<char>::ymd:
-		// yyyy/mm/dd
-		str = std::format("{:04d}/{:02d}/{:02d} {:02d}:{:02d}:{:02d}", year, mon, day, hr, minute, (int)sec);
-		break;
+		case std::time_get<char>::ymd:
+			// yyyy/mm/dd
+			str = std::format("{:04d}/{:02d}/{:02d} {:02d}:{:02d}:{:02d}", year, mon, day, hr, minute, (int)sec);
+			break;
 
-	case std::time_get<char>::ydm:
-		// yyyy/dd/mm"
-		str = std::format("{:04d}/{:02d}/{:02d} {:02d}:{:02d}:{:02d}", year, day, mon, hr, minute, (int)sec);
-		break;
+		case std::time_get<char>::ydm:
+			// yyyy/dd/mm"
+			str = std::format("{:04d}/{:02d}/{:02d} {:02d}:{:02d}:{:02d}", year, day, mon, hr, minute, (int)sec);
+			break;
 
-	default:
-		str = std::format("{:02d}/{:02d}/{:04d} {:02d}:{:02d}:{:02d}", day, mon, year, hr, minute, (int)sec);
-		break;
+		default:
+			str = std::format("{:02d}/{:02d}/{:04d} {:02d}:{:02d}:{:02d}", day, mon, year, hr, minute, (int)sec);
+			break;
 	}
 
 	if (utc)
@@ -431,33 +456,43 @@ std::string julian_to_string(double jd, bool utc) {
 	return str;
 }
 
-std::tuple<double, double> calc_azm_elev(double jd, observer_t& observer, elsetrec& satrec) {
+
+std::tuple<double, double> calc_azm_elev(double jd, observer_t &observer, elsetrec &satrec) {
 	double tle_date = satrec.jdsatepoch + satrec.jdsatepochF;
 
 	eci_pos_t sat = get_sat_pos((jd - tle_date) * 1440, satrec);
-	if (satrec.error != 0)
-		return { -1.0, -1.0 };
+	if (satrec.error != 0) {
+		return {
+			-1.0,
+			-1.0
+		};
+	}
 
 	topocentric_t topo = observer.get_lookup_angle(jd, sat);
 
-	return { topo.azimuth, topo.elevation };
+	return {
+		topo.azimuth,
+		topo.elevation
+	};
 }
 
-double calc_elev(double jd, observer_t& observer, elsetrec& satrec) {
+
+double calc_elev(double jd, observer_t &observer, elsetrec &satrec) {
 	double tle_date = satrec.jdsatepoch + satrec.jdsatepochF;
 
 	eci_pos_t sat = get_sat_pos((jd - tle_date) * 1440, satrec);
-	if (satrec.error != 0)
-		return 0.0;
+	if (satrec.error != 0) {
+		return (0.0);
+	}
 
 	topocentric_t topo = observer.get_lookup_angle(jd, sat);
 
-	return topo.elevation;
+	return (topo.elevation);
 }
 
-double regula_falsi(double xg, double xd, observer_t& observer, elsetrec& satrec) {
+
+double regula_falsi(double xg, double xd, observer_t &observer, elsetrec &satrec) {
 	const double eps = 1e-7;
-
 	double yg = 0.0;
 	double yd = 0.0;
 	double yk = 0.0;
@@ -480,8 +515,7 @@ double regula_falsi(double xg, double xd, observer_t& observer, elsetrec& satrec
 		if (yk * yd <= 0.0) {
 			xg = xk;
 			yg = yk;
-		}
-		else {
+		} else {
 			xd = xk;
 			yd = yk;
 		}
