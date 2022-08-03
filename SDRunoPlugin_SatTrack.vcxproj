@@ -114,14 +114,14 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>.\sdruno_kit\include;.\sdruno_kit\nana\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\plugins\include;..\plugins\nana\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <EnableUAC>false</EnableUAC>
-      <AdditionalLibraryDirectories>.\sdruno_kit\nana\build\bin</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\plugins\nana\build\bin;.\sdruno_kit\nana\build\bin</AdditionalLibraryDirectories>
       <AdditionalDependencies>nana_$(PlatformToolset)_$(Configuration)_$(PlatformShortName).lib;png_$(PlatformToolset)_$(Configuration)_$(PlatformShortName).lib;jpeg_$(PlatformToolset)_$(Configuration)_$(PlatformShortName).lib;gif_$(PlatformToolset)_$(Configuration)_$(PlatformShortName).lib;zlib_$(PlatformToolset)_$(Configuration)_$(PlatformShortName).lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions />
     </Link>
@@ -135,13 +135,13 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>.\sdruno_kit\include;.\sdruno_kit\nana\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\Development\SDRuno\plugins\plugins\include;D:\Development\SDRuno\plugins\plugins\nana\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
-      <AdditionalLibraryDirectories>.\sdruno_kit\nana\build\bin</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>D:\Development\SDRuno\plugins\plugins\nana\build\bin</AdditionalLibraryDirectories>
       <AdditionalDependencies>nana_$(PlatformToolset)_$(Configuration)_$(PlatformShortName).lib;png_$(PlatformToolset)_$(Configuration)_$(PlatformShortName).lib;jpeg_$(PlatformToolset)_$(Configuration)_$(PlatformShortName).lib;gif_$(PlatformToolset)_$(Configuration)_$(PlatformShortName).lib;zlib_$(PlatformToolset)_$(Configuration)_$(PlatformShortName).lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>
       </AdditionalOptions>
